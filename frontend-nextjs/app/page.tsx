@@ -14,11 +14,32 @@ import {
 } from "lucide-react";
 import { Fira_Code } from "next/font/google";
 import axios from "axios";
+import type { Socket } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:9002";
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
+  }
+  return "http://localhost:9000";
+}
 
-const socket = io(SOCKET_URL);
+function resolveSocketUrl(): string {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+    return process.env.NEXT_PUBLIC_SOCKET_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:9002";
+}
+
+function createSocket(url: string): Socket {
+  const isDirectSocketPort = /:9002$/.test(url);
+  return io(url, isDirectSocketPort ? {} : { path: "/socket.io/" });
+}
 
 const firaCode = Fira_Code({ subsets: ["latin"] });
 
@@ -60,6 +81,7 @@ export default function Home() {
   >();
 
   const logContainerRef = useRef<HTMLElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const isValidURL: [boolean, string | null] = useMemo(() => {
     if (!repoURL || repoURL.trim() === "") return [false, null];
@@ -72,7 +94,7 @@ export default function Home() {
   const handleClickDeploy = useCallback(async () => {
     setLoading(true);
 
-    const { data } = await axios.post(`${API_URL}/project`, {
+    const { data } = await axios.post(`${resolveApiUrl()}/project`, {
       gitURL: repoURL,
       slug: projectId,
     });
@@ -82,7 +104,7 @@ export default function Home() {
       setProjectId(projectSlug);
       setDeployPreviewURL(url);
 
-      socket.emit("subscribe", `logs:${projectSlug}`);
+      socketRef.current?.emit("subscribe", `logs:${projectSlug}`);
     }
   }, [projectId, repoURL]);
 
@@ -93,10 +115,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const socket = createSocket(resolveSocketUrl());
+    socketRef.current = socket;
     socket.on("message", handleSocketIncommingMessage);
 
     return () => {
       socket.off("message", handleSocketIncommingMessage);
+      socket.disconnect();
+      socketRef.current = null;
     };
   }, [handleSocketIncommingMessage]);
 

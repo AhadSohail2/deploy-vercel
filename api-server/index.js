@@ -1,4 +1,5 @@
 const express = require('express')
+const cors = require('cors')
 const { generateSlug } = require('random-word-slugs')
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs')
 const { Server } = require('socket.io')
@@ -10,11 +11,22 @@ const SOCKET_PORT = process.env.SOCKET_PORT || 9002
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 const DEPLOY_HOST = process.env.DEPLOY_HOST || 'localhost:8000'
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*'
+
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}
 
 const subscriber = new Redis(REDIS_URL)
 
-const io = new Server({ cors: { origin: FRONTEND_ORIGIN } })
+const io = new Server({
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+    },
+    path: '/socket.io/',
+})
 
 io.on('connection', socket => {
     socket.on('subscribe', channel => {
@@ -44,6 +56,8 @@ const config = {
     SECURITY_GROUPS: (process.env.ECS_SECURITY_GROUPS || '').split(',').filter(Boolean)
 }
 
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions))
 app.use(express.json())
 
 app.post('/project', async (req, res) => {
