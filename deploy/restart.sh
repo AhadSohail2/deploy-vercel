@@ -1,15 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-# Restart PM2 services. Run from project root:
-#   bash deploy/restart.sh
+# Restart PM2 services. Run as your normal user (ubuntu) — NOT sudo:
 #   bash deploy/restart.sh --rebuild
-#   sudo bash deploy/restart.sh --nginx
+#   bash deploy/restart.sh --nginx    (only nginx step uses sudo internally)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ENV_FILE="${APP_DIR}/.env"
 NGINX_GEN="${APP_DIR}/deploy/.nginx.generated.conf"
+APP_USER="$(whoami)"
 
 REBUILD=false
 RELOAD_NGINX=false
@@ -20,8 +20,10 @@ for arg in "$@"; do
         --nginx|-n) RELOAD_NGINX=true ;;
         --help|-h)
             echo "Usage: bash deploy/restart.sh [--rebuild] [--nginx]"
-            echo "  --rebuild, -b   Rebuild frontend before restart"
-            echo "  --nginx,   -n   Reload nginx (run with sudo)"
+            echo ""
+            echo "  Run as ubuntu, NOT sudo. Example:"
+            echo "    bash deploy/restart.sh --rebuild"
+            echo "    bash deploy/restart.sh --nginx"
             exit 0
             ;;
         *)
@@ -31,9 +33,22 @@ for arg in "$@"; do
     esac
 done
 
+if [ "$(id -u)" -eq 0 ]; then
+    echo "ERROR: Do not run this script with sudo."
+    echo "Run as your normal user: bash deploy/restart.sh --rebuild"
+    echo "If you have permission errors first run: bash deploy/fix-permissions.sh"
+    exit 1
+fi
+
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: ${ENV_FILE} not found."
     echo "Copy deploy/.env.example to .env and fill in your values."
+    exit 1
+fi
+
+if [ -d "${APP_DIR}/frontend-nextjs/.next" ] && [ ! -w "${APP_DIR}/frontend-nextjs/.next" ]; then
+    echo "ERROR: .next is owned by root (from a previous sudo run)."
+    echo "Run: bash deploy/fix-permissions.sh"
     exit 1
 fi
 

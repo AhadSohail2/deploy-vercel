@@ -104,10 +104,12 @@ REDIS_URL=redis://127.0.0.1:6379
 ## 4. Run setup script
 
 ```bash
-# From the project root (where you cloned the repo)
 sudo bash deploy/ec2-setup.sh
 ```
-This installs Node 20, Redis, nginx, PM2, builds the frontend, and starts all services.
+
+This installs system packages as root, but runs **npm build and PM2 as ubuntu** (not root).
+
+> **Important:** After setup, use `bash deploy/restart.sh` as **ubuntu** — never `sudo bash deploy/restart.sh`.
 
 ## 5. Verify
 
@@ -134,24 +136,19 @@ If you still use **ECS Fargate** for `build-server`, Fargate tasks must reach th
 
 ## Restart services
 
-After code changes, `.env` updates, or CORS/config fixes:
+After code changes or `.env` updates:
 
 ```bash
-# From the project root
-bash deploy/restart.sh
-```
-
-Rebuild frontend (required when `NEXT_PUBLIC_*` vars change):
-
-```bash
+# Run as ubuntu — NOT sudo
 bash deploy/restart.sh --rebuild
+bash deploy/restart.sh --nginx   # only this step uses sudo internally
 ```
 
-Also reload nginx after config changes:
+If you see `EACCES permission denied` on `.next/trace`, a previous `sudo` run left root-owned files:
 
 ```bash
-bash deploy/restart.sh --nginx          # needs sudo for nginx
-bash deploy/restart.sh --rebuild --nginx
+bash deploy/fix-permissions.sh
+bash deploy/restart.sh --rebuild
 ```
 
 ## Manual commands
