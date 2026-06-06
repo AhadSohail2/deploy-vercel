@@ -16,29 +16,39 @@ import { Fira_Code } from "next/font/google";
 import axios from "axios";
 import type { Socket } from "socket.io-client";
 
-function isLocalDev(): boolean {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname;
-  return host === "localhost" || host === "127.0.0.1";
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const { protocol, hostname, port } = window.location;
+    if (port === "3000") {
+      return `${protocol}//${hostname}:9000`;
+    }
+    return `${window.location.origin}/api`;
+  }
+  return "http://localhost:9000";
 }
 
-function resolveApiUrl(): string {
-  if (isLocalDev()) {
-    return (
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"
-    ).replace(/\/$/, "");
+function resolveSocketConfig(): { url: string; path?: string } {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+    const url = process.env.NEXT_PUBLIC_SOCKET_URL.replace(/\/$/, "");
+    const viaNginx = !/:9002$/.test(url);
+    return viaNginx ? { url, path: "/socket.io/" } : { url };
   }
-  return "/api";
+  if (typeof window !== "undefined") {
+    const { protocol, hostname, port } = window.location;
+    if (port === "3000") {
+      return { url: `${protocol}//${hostname}:9002` };
+    }
+    return { url: window.location.origin, path: "/socket.io/" };
+  }
+  return { url: "http://localhost:9002" };
 }
 
 function createSocket(): Socket {
-  if (isLocalDev()) {
-    const url = (
-      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:9000"
-    ).replace(/\/$/, "");
-    return io(url, { path: "/socket.io/" });
-  }
-  return io({ path: "/socket.io/" });
+  const { url, path } = resolveSocketConfig();
+  return path ? io(url, { path }) : io(url);
 }
 
 const firaCode = Fira_Code({ subsets: ["latin"] });
