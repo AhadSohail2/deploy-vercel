@@ -69,15 +69,17 @@ Open ports 3000, 8000, 9000, 9002 in the security group and skip nginx. Good for
 
 ## 3. Clone and configure
 
+Clone the repo anywhere on the server (home directory is fine):
+
 ```bash
-sudo mkdir -p /opt/vercel-clone
-sudo git clone <your-repo-url> /opt/vercel-clone
-cd /opt/vercel-clone
+git clone <your-repo-url> vercel-clone
+cd vercel-clone
 
 cp deploy/.env.example .env
 nano .env   # fill in AWS keys, ECS ARNs, DOMAIN, etc.
 ```
 
+The setup script resolves paths from wherever you cloned the repo — no `/opt` folder required.
 Key variables (with domain):
 
 ```bash
@@ -102,9 +104,9 @@ REDIS_URL=redis://127.0.0.1:6379
 ## 4. Run setup script
 
 ```bash
+# From the project root (where you cloned the repo)
 sudo bash deploy/ec2-setup.sh
 ```
-
 This installs Node 20, Redis, nginx, PM2, builds the frontend, and starts all services.
 
 ## 5. Verify
@@ -130,18 +132,33 @@ If you still use **ECS Fargate** for `build-server`, Fargate tasks must reach th
 3. Restart Redis: `sudo systemctl restart redis-server`
 4. Allow port 6379 from your VPC only in the EC2 security group
 
+## Restart services
+
+After code changes, `.env` updates, or CORS/config fixes:
+
+```bash
+# From the project root
+bash deploy/restart.sh
+```
+
+Rebuild frontend (required when `NEXT_PUBLIC_*` vars change):
+
+```bash
+bash deploy/restart.sh --rebuild
+```
+
+Also reload nginx after config changes:
+
+```bash
+bash deploy/restart.sh --nginx          # needs sudo for nginx
+bash deploy/restart.sh --rebuild --nginx
+```
+
 ## Manual commands
 
 ```bash
-# Restart after .env changes
-cd /opt/vercel-clone
-pm2 restart all
-
-# Rebuild frontend after NEXT_PUBLIC_* changes
-cd frontend-nextjs
-source ../.env
-NEXT_PUBLIC_API_URL=... NEXT_PUBLIC_SOCKET_URL=... npm run build
-pm2 restart frontend
+# Quick restart (same as deploy/restart.sh)
+bash deploy/restart.sh
 
 # View logs
 pm2 logs api-server

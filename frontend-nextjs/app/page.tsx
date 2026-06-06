@@ -16,29 +16,29 @@ import { Fira_Code } from "next/font/google";
 import axios from "axios";
 import type { Socket } from "socket.io-client";
 
+function isLocalDev(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
 function resolveApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  if (isLocalDev()) {
+    return (
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"
+    ).replace(/\/$/, "");
   }
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/api`;
-  }
-  return "http://localhost:9000";
+  return "/api";
 }
 
-function resolveSocketUrl(): string {
-  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
-    return process.env.NEXT_PUBLIC_SOCKET_URL.replace(/\/$/, "");
+function createSocket(): Socket {
+  if (isLocalDev()) {
+    const url = (
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:9000"
+    ).replace(/\/$/, "");
+    return io(url, { path: "/socket.io/" });
   }
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  return "http://localhost:9002";
-}
-
-function createSocket(url: string): Socket {
-  const isDirectSocketPort = /:9002$/.test(url);
-  return io(url, isDirectSocketPort ? {} : { path: "/socket.io/" });
+  return io({ path: "/socket.io/" });
 }
 
 const firaCode = Fira_Code({ subsets: ["latin"] });
@@ -109,13 +109,19 @@ export default function Home() {
   }, [projectId, repoURL]);
 
   const handleSocketIncommingMessage = useCallback((message: string) => {
-    const { log } = JSON.parse(message);
-    setLogs((prev) => [...prev, log]);
-    logContainerRef.current?.scrollIntoView({ behavior: "smooth" });
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed?.log) {
+        setLogs((prev) => [...prev, parsed.log]);
+        logContainerRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    } catch {
+      // ignore non-JSON socket messages
+    }
   }, []);
 
   useEffect(() => {
-    const socket = createSocket(resolveSocketUrl());
+    const socket = createSocket();
     socketRef.current = socket;
     socket.on("message", handleSocketIncommingMessage);
 

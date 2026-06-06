@@ -1,3 +1,4 @@
+const http = require('http')
 const express = require('express')
 const cors = require('cors')
 const { generateSlug } = require('random-word-slugs')
@@ -7,22 +8,23 @@ const Redis = require('ioredis')
 
 const app = express()
 const PORT = process.env.PORT || 9000
-const SOCKET_PORT = process.env.SOCKET_PORT || 9002
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 const DEPLOY_HOST = process.env.DEPLOY_HOST || 'localhost:8000'
 
 const corsOptions = {
-    origin: '*',
+    origin: true,
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }
 
 const subscriber = new Redis(REDIS_URL)
 
-const io = new Server({
+const server = http.createServer(app)
+
+const io = new Server(server, {
     cors: {
-        origin: '*',
+        origin: true,
         methods: ['GET', 'POST'],
     },
     path: '/socket.io/',
@@ -31,11 +33,9 @@ const io = new Server({
 io.on('connection', socket => {
     socket.on('subscribe', channel => {
         socket.join(channel)
-        socket.emit('message', `Joined ${channel}`)
+        socket.emit('message', JSON.stringify({ log: `Subscribed to ${channel}` }))
     })
 })
-
-io.listen(SOCKET_PORT, () => console.log(`Socket Server ${SOCKET_PORT}`))
 
 const ecsClient = new ECSClient({
     region: process.env.AWS_REGION || 'us-east-1',
@@ -110,4 +110,4 @@ async function initRedisSubscribe() {
 
 initRedisSubscribe()
 
-app.listen(PORT, () => console.log(`API Server Running..${PORT}`))
+server.listen(PORT, () => console.log(`API + Socket server running on ${PORT}`))
