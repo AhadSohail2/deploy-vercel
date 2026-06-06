@@ -2,12 +2,14 @@
 set -euo pipefail
 
 # EC2 setup for vercel-clone
-# Run on Ubuntu 22.04/24.04 as root or with sudo:
-#   curl -fsSL ... | bash   OR   bash deploy/ec2-setup.sh
+# Run from the project root on Ubuntu 22.04/24.04 (as root or with sudo):
+#   sudo bash deploy/ec2-setup.sh
 
-APP_DIR="${APP_DIR:-/opt/vercel-clone}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ENV_FILE="${APP_DIR}/.env"
 
+echo "==> Using project directory: ${APP_DIR}"
 echo "==> Installing system dependencies..."
 apt-get update
 apt-get install -y curl git nginx redis-server
@@ -31,6 +33,11 @@ systemctl start redis-server
 # systemctl restart redis-server
 
 if [ ! -f "$ENV_FILE" ]; then
+    if [ ! -f "${APP_DIR}/deploy/.env.example" ]; then
+        echo "ERROR: ${APP_DIR}/deploy/.env.example not found."
+        echo "Create ${ENV_FILE} manually (see deploy/DEPLOY.md) or pull the latest repo with deploy/.env.example committed."
+        exit 1
+    fi
     echo "==> Creating .env from example — EDIT THIS FILE before starting services!"
     cp "${APP_DIR}/deploy/.env.example" "$ENV_FILE"
 fi
