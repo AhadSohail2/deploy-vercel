@@ -65,7 +65,8 @@ pm2 startup systemd -u root --hp /root 2>/dev/null || pm2 startup
 
 echo "==> Configuring nginx..."
 if [ -n "${DOMAIN:-}" ]; then
-    sed "s/YOUR_DOMAIN/${DOMAIN}/g" "${APP_DIR}/deploy/nginx.conf" > /etc/nginx/sites-available/vercel-clone
+    sed "s/YOUR_DOMAIN/${DOMAIN}/g" "${APP_DIR}/deploy/nginx.conf" > "${APP_DIR}/deploy/.nginx.generated.conf"
+    cp "${APP_DIR}/deploy/.nginx.generated.conf" /etc/nginx/sites-available/vercel-clone
     ln -sf /etc/nginx/sites-available/vercel-clone /etc/nginx/sites-enabled/vercel-clone
     rm -f /etc/nginx/sites-enabled/default
     nginx -t

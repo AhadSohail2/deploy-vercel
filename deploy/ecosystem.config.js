@@ -27,26 +27,38 @@ module.exports = {
             name: 'api-server',
             cwd: path.join(root, 'api-server'),
             script: 'index.js',
-            env
+            env: {
+                ...env,
+                PORT: env.PORT || '9000',
+                SOCKET_PORT: env.SOCKET_PORT || '9002',
+            },
+            max_restarts: 10,
+            min_uptime: '10s',
         },
         {
             name: 's3-reverse-proxy',
             cwd: path.join(root, 's3-reverse-proxy'),
             script: 'index.js',
             env: {
-                ...env,
-                PORT: env.S3_REVERSE_PROXY_PORT || 8000
-            }
+                NODE_ENV: 'production',
+                AWS_REGION: env.AWS_REGION,
+                S3_BUCKET: env.S3_BUCKET,
+                S3_BASE_PATH: env.S3_BASE_PATH,
+                PORT: env.S3_REVERSE_PROXY_PORT || '8000',
+            },
+            max_restarts: 10,
+            min_uptime: '10s',
         },
         {
             name: 'frontend',
             cwd: path.join(root, 'frontend-nextjs'),
-            script: 'npm',
-            args: 'start',
+            script: 'node_modules/next/dist/bin/next',
+            args: 'start -p 3000',
             env: {
-                ...env,
-                PORT: 3000
-            }
-        }
-    ]
+                NODE_ENV: 'production',
+            },
+            max_restarts: 10,
+            min_uptime: '10s',
+        },
+    ],
 }

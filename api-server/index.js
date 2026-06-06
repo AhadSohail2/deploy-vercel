@@ -18,7 +18,14 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization'],
 }
 
-const subscriber = new Redis(REDIS_URL)
+const subscriber = new Redis(REDIS_URL, {
+    maxRetriesPerRequest: null,
+    retryStrategy: (times) => Math.min(times * 500, 10000),
+})
+
+subscriber.on('error', (err) => {
+    console.error('Redis error:', err.message)
+})
 
 const io = new Server({
     cors: {
@@ -36,6 +43,9 @@ io.on('connection', socket => {
 })
 
 io.listen(SOCKET_PORT, () => console.log(`Socket server on ${SOCKET_PORT}`))
+io.engine.on('connection_error', (err) => {
+    console.error('Socket connection error:', err.message)
+})
 
 const ecsClient = new ECSClient({
     region: process.env.AWS_REGION || 'us-east-1',
