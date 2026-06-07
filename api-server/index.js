@@ -72,13 +72,31 @@ const config = {
     SECURITY_GROUPS: (process.env.ECS_SECURITY_GROUPS || '').split(',').map(s => s.trim()).filter(Boolean)
 }
 
+const SUBNET_PATTERN = /^subnet-[0-9a-f]+$/
+const SECURITY_GROUP_PATTERN = /^sg-[0-9a-f]+$/
+
 function validateEcsConfig() {
     const missing = []
+    const invalid = []
+
     if (!config.CLUSTER) missing.push('ECS_CLUSTER_ARN')
     if (!config.TASK) missing.push('ECS_TASK_ARN')
     if (config.SUBNETS.length === 0) missing.push('ECS_SUBNETS')
     if (config.SECURITY_GROUPS.length === 0) missing.push('ECS_SECURITY_GROUPS')
-    return missing
+
+    for (const subnet of config.SUBNETS) {
+        if (!SUBNET_PATTERN.test(subnet)) {
+            invalid.push(`invalid subnet "${subnet}" (must look like subnet-0abc123def456)`)
+        }
+    }
+
+    for (const sg of config.SECURITY_GROUPS) {
+        if (!SECURITY_GROUP_PATTERN.test(sg)) {
+            invalid.push(`invalid security group "${sg}" (must look like sg-0abc123def456)`)
+        }
+    }
+
+    return { missing, invalid }
 }
 
 app.use(cors(corsOptions))
@@ -89,11 +107,18 @@ app.post('/project', async (req, res) => {
     const { gitURL, slug } = req.body
     const projectSlug = slug ? slug : generateSlug()
 
-    const missing = validateEcsConfig()
+    const { missing, invalid } = validateEcsConfig()
     if (missing.length > 0) {
         return res.status(500).json({
             status: 'error',
             message: `Missing ECS config: ${missing.join(', ')}`
+        })
+    }
+    if (invalid.length > 0) {
+        return res.status(500).json({
+            status: 'error',
+            message: invalid.join('; '),
+            hint: 'Fix ECS_SUBNETS and ECS_SECURITY_GROUPS in .env — copy exact IDs from AWS VPC console'
         })
     }
 
