@@ -67,7 +67,7 @@ const ecsClient = new ECSClient({
 const config = {
     CLUSTER: process.env.ECS_CLUSTER_ARN,
     TASK: process.env.ECS_TASK_ARN,
-    CONTAINER: process.env.ECS_CONTAINER_NAME || 'build-server',
+    CONTAINER: process.env.ECS_CONTAINER_NAME || 'builder-image',
     SUBNETS: (process.env.ECS_SUBNETS || '').split(',').map(s => s.trim()).filter(Boolean),
     SECURITY_GROUPS: (process.env.ECS_SECURITY_GROUPS || '').split(',').map(s => s.trim()).filter(Boolean)
 }
@@ -104,11 +104,26 @@ function validateBuildEnv() {
     if (!process.env.AWS_ACCESS_KEY_ID) missing.push('AWS_ACCESS_KEY_ID')
     if (!process.env.AWS_SECRET_ACCESS_KEY) missing.push('AWS_SECRET_ACCESS_KEY')
     if (!process.env.S3_BUCKET) missing.push('S3_BUCKET')
+    if (!process.env.REDIS_URL_FOR_ECS) missing.push('REDIS_URL_FOR_ECS')
     return missing
 }
 
+function getRedisUrlForBuild() {
+    const url = process.env.REDIS_URL_FOR_ECS || ''
+    if (!url) {
+        return { error: 'REDIS_URL_FOR_ECS is not set. Run: sudo bash deploy/configure-redis-ecs.sh' }
+    }
+    if (url.includes('127.0.0.1') || url.includes('localhost')) {
+        return {
+            error: 'REDIS_URL_FOR_ECS must use EC2 private IP (not localhost). Run: sudo bash deploy/configure-redis-ecs.sh',
+        }
+    }
+    return { url }
+}
+
 function buildContainerEnvironment(gitURL, projectSlug) {
-    const redisUrlForBuild = process.env.REDIS_URL_FOR_ECS || REDIS_URL
+    const { url: redisUrlForBuild, error } = getRedisUrlForBuild()
+    if (error) throw new Error(error)
 
     const vars = {
         GIT_REPOSITORY__URL: gitURL,
@@ -125,6 +140,14 @@ function buildContainerEnvironment(gitURL, projectSlug) {
         .map(([name, value]) => ({ name, value: String(value) }))
 }
 
+function logBuildEnv(env) {
+    const safe = env.map(({ name, value }) => ({
+        name,
+        value: name.includes('SECRET') ? '***' : value,
+    }))
+    console.log('ECS container override:', config.CONTAINER, safe)
+}
+
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 app.use(express.json())
@@ -132,10 +155,12 @@ app.use(express.json())
 app.get('/ecs-check', (req, res) => {
     const { missing, invalid } = validateEcsConfig()
     const buildMissing = validateBuildEnv()
+    const redisCheck = getRedisUrlForBuild()
     res.json({
-        ok: missing.length === 0 && invalid.length === 0 && buildMissing.length === 0,
+        ok: missing.length === 0 && invalid.length === 0 && buildMissing.length === 0 && !redisCheck.error,
         missing: [...missing, ...buildMissing],
         invalid,
+        redisError: redisCheck.error || null,
         config: {
             cluster: config.CLUSTER,
             task: config.TASK,
@@ -144,7 +169,9 @@ app.get('/ecs-check', (req, res) => {
             securityGroups: config.SECURITY_GROUPS,
             region: process.env.AWS_REGION || 'us-east-1',
             s3Bucket: process.env.S3_BUCKET,
-            redisUrlForEcs: process.env.REDIS_URL_FOR_ECS || REDIS_URL,
+            redisUrlLocal: REDIS_URL,
+            redisUrlForEcs: process.env.REDIS_URL_FOR_ECS || null,
+            redisUrlPassedToBuild: redisCheck.url || null,
             hasAwsCredentials: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
         },
     })
@@ -170,6 +197,20 @@ app.post('/project', async (req, res) => {
         })
     }
 
+    const redisCheck = getRedisUrlForBuild()
+    if (redisCheck.error) {
+        return res.status(500).json({ status: 'error', message: redisCheck.error })
+    }
+
+    let containerEnvironment
+    try {
+        containerEnvironment = buildContainerEnvironment(gitURL, projectSlug)
+    } catch (err) {
+        return res.status(500).json({ status: 'error', message: err.message })
+    }
+
+    logBuildEnv(containerEnvironment)
+
     const command = new RunTaskCommand({
         cluster: config.CLUSTER,
         taskDefinition: config.TASK,
@@ -186,7 +227,7 @@ app.post('/project', async (req, res) => {
             containerOverrides: [
                 {
                     name: config.CONTAINER,
-                    environment: buildContainerEnvironment(gitURL, projectSlug)
+                    environment: containerEnvironment
                 }
             ]
         }

@@ -86,6 +86,9 @@ echo "==> Starting PM2 services..."
 pm2 start deploy/ecosystem.config.js
 pm2 save
 
+echo "==> Waiting for services to bind ports..."
+sleep 5
+
 if [ "$RELOAD_NGINX" = true ]; then
     if [ -z "${DOMAIN:-}" ]; then
         echo "WARNING: DOMAIN not set — skipping nginx reload"
@@ -102,7 +105,9 @@ fi
 
 echo ""
 echo "=== Restart complete ==="
-echo "Quick health check:"
+echo "(PM2 shows a table when starting — that is normal. You have one PM2 daemon.)"
+echo ""
+echo "Health check:"
 if curl -s --connect-timeout 3 http://127.0.0.1:3000 -o /dev/null 2>&1; then
     echo "  frontend :3000  OK"
 else
@@ -124,6 +129,5 @@ else
     echo "  s3-proxy :8000  FAIL — run: pm2 logs s3-reverse-proxy"
 fi
 echo ""
-pm2 status
-echo ""
 echo "View logs: pm2 logs"
+echo "Check status anytime: pm2 status"
