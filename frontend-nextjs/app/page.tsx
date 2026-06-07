@@ -89,6 +89,7 @@ export default function Home() {
   const [deployPreviewURL, setDeployPreviewURL] = useState<
     string | undefined
   >();
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const logContainerRef = useRef<HTMLElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -103,18 +104,28 @@ export default function Home() {
 
   const handleClickDeploy = useCallback(async () => {
     setLoading(true);
+    setDeployError(null);
 
-    const { data } = await axios.post(`${resolveApiUrl()}/project`, {
-      gitURL: repoURL,
-      slug: projectId,
-    });
+    try {
+      const { data } = await axios.post(`${resolveApiUrl()}/project`, {
+        gitURL: repoURL,
+        slug: projectId,
+      });
 
-    if (data && data.data) {
-      const { projectSlug, url } = data.data;
-      setProjectId(projectSlug);
-      setDeployPreviewURL(url);
-
-      socketRef.current?.emit("subscribe", `logs:${projectSlug}`);
+      if (data && data.data) {
+        const { projectSlug, url } = data.data;
+        setProjectId(projectSlug);
+        setDeployPreviewURL(url);
+        socketRef.current?.emit("subscribe", `logs:${projectSlug}`);
+      }
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        setDeployError(err.response.data.message);
+      } else {
+        setDeployError("Deploy failed. Check pm2 logs api-server.");
+      }
+    } finally {
+      setLoading(false);
     }
   }, [projectId, repoURL]);
 
@@ -217,6 +228,10 @@ export default function Home() {
           >
             {loading ? "Building & Deploying..." : "Deploy Project"}
           </Button>
+
+          {deployError && (
+            <p className="mt-3 text-sm text-red-400">{deployError}</p>
+          )}
 
           {deployPreviewURL && (
             <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3">

@@ -103,6 +103,23 @@ app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 app.use(express.json())
 
+app.get('/ecs-check', (req, res) => {
+    const { missing, invalid } = validateEcsConfig()
+    res.json({
+        ok: missing.length === 0 && invalid.length === 0,
+        missing,
+        invalid,
+        config: {
+            cluster: config.CLUSTER,
+            task: config.TASK,
+            container: config.CONTAINER,
+            subnets: config.SUBNETS,
+            securityGroups: config.SECURITY_GROUPS,
+            region: process.env.AWS_REGION || 'us-east-1',
+        },
+    })
+})
+
 app.post('/project', async (req, res) => {
     const { gitURL, slug } = req.body
     const projectSlug = slug ? slug : generateSlug()
@@ -153,11 +170,18 @@ app.post('/project', async (req, res) => {
     try {
         await ecsClient.send(command)
     } catch (err) {
-        console.error('ECS RunTask failed:', err)
+        console.error('ECS RunTask failed:', err.message)
+        console.error('ECS config used:', {
+            cluster: config.CLUSTER,
+            task: config.TASK,
+            container: config.CONTAINER,
+            subnets: config.SUBNETS,
+            securityGroups: config.SECURITY_GROUPS,
+        })
         return res.status(500).json({
             status: 'error',
             message: err.message || 'Failed to start ECS build task',
-            hint: 'Check ECS_CLUSTER_ARN, ECS_TASK_ARN, ECS_SUBNETS, ECS_SECURITY_GROUPS, and ECS_CONTAINER_NAME in .env'
+            hint: 'Run: curl http://127.0.0.1:9000/ecs-check — fix invalid values in .env then pm2 restart api-server'
         })
     }
 
