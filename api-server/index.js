@@ -1,4 +1,5 @@
 const express = require('express')
+const http = require('http')
 const cors = require('cors')
 const { generateSlug } = require('random-word-slugs')
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs')
@@ -42,7 +43,11 @@ io.on('connection', socket => {
     })
 })
 
-io.listen(SOCKET_PORT, '127.0.0.1', () => console.log(`Socket server on 127.0.0.1:${SOCKET_PORT}`))
+const socketServer = http.createServer()
+io.attach(socketServer)
+socketServer.listen(SOCKET_PORT, '127.0.0.1', () => {
+    console.log(`Socket server on 127.0.0.1:${SOCKET_PORT}`)
+})
 io.engine.on('connection_error', (err) => {
     console.error('Socket connection error:', err.message)
 })
