@@ -42,7 +42,7 @@ io.on('connection', socket => {
     })
 })
 
-io.listen(SOCKET_PORT, () => console.log(`Socket server on ${SOCKET_PORT}`))
+io.listen(SOCKET_PORT, '127.0.0.1', () => console.log(`Socket server on 127.0.0.1:${SOCKET_PORT}`))
 io.engine.on('connection_error', (err) => {
     console.error('Socket connection error:', err.message)
 })
@@ -147,4 +147,4 @@ async function initRedisSubscribe() {
 
 initRedisSubscribe()
 
-app.listen(PORT, () => console.log(`API server on ${PORT}`))
+app.listen(PORT, '127.0.0.1', () => console.log(`API server on 127.0.0.1:${PORT}`))

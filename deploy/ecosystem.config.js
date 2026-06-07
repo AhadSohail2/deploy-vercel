@@ -46,6 +46,8 @@ module.exports = {
                 S3_BASE_PATH: env.S3_BASE_PATH,
                 PORT: env.S3_REVERSE_PROXY_PORT || '8000',
             },
+            kill_timeout: 5000,
+            restart_delay: 3000,
             max_restarts: 10,
             min_uptime: '10s',
         },

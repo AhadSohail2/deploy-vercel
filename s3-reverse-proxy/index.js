@@ -25,4 +25,4 @@ proxy.on('proxyReq', (proxyReq, req, res) => {
         proxyReq.path += 'index.html'
 })
 
-app.listen(PORT, () => console.log(`Reverse Proxy Running..${PORT}`))
+app.listen(PORT, '127.0.0.1', () => console.log(`Reverse Proxy Running on 127.0.0.1:${PORT}`))

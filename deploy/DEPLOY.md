@@ -151,6 +151,13 @@ bash deploy/fix-permissions.sh
 bash deploy/restart.sh --rebuild
 ```
 
+If you see `EADDRINUSE` on ports 3000/8000, you likely have **two PM2 instances** (root + ubuntu) from running setup with sudo:
+
+```bash
+bash deploy/stop-all.sh
+bash deploy/restart.sh --rebuild
+```
+
 ## Manual commands
 
 ```bash

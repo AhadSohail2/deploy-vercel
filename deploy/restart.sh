@@ -79,22 +79,10 @@ fi
 
 cd "$APP_DIR"
 
-free_port() {
-    local port=$1
-    if command -v fuser &>/dev/null; then
-        fuser -k "${port}/tcp" 2>/dev/null || true
-    elif command -v lsof &>/dev/null; then
-        lsof -ti:"${port}" 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    fi
-}
+echo "==> Stopping all services and freeing ports..."
+bash "${APP_DIR}/deploy/stop-all.sh"
 
-echo "==> Restarting PM2 services..."
-pm2 delete all 2>/dev/null || true
-sleep 1
-for port in 3000 9000 9002 8000; do
-    free_port "$port"
-done
-sleep 1
+echo "==> Starting PM2 services..."
 pm2 start deploy/ecosystem.config.js
 pm2 save
 
