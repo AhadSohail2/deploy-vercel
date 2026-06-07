@@ -55,9 +55,10 @@ function findOutputDir(projectRoot) {
 
 function runBuild(projectRoot) {
     return new Promise((resolve, reject) => {
-        const p = spawn('bash', ['-lc', 'npm install && npm run build'], {
+        const { NODE_ENV, ...envWithoutNodeEnv } = process.env
+        const p = spawn('bash', ['-lc', 'npm install --include=dev && NODE_ENV=production npm run build'], {
             cwd: projectRoot,
-            env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=2048' },
+            env: { ...envWithoutNodeEnv, NODE_OPTIONS: '--max-old-space-size=2048' },
         })
 
         p.stdout.on('data', (d) => publishLog(d.toString()))
