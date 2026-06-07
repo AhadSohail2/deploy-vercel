@@ -4,7 +4,7 @@ const httpProxy = require('http-proxy')
 const app = express()
 const PORT = process.env.PORT || 8000
 
-const S3_BUCKET = process.env.S3_BUCKET || 'vercel-deploy-clone-23'
+const S3_BUCKET = process.env.S3_BUCKET || 'vercel-deploy-clone-24'
 const AWS_REGION = process.env.AWS_REGION || 'us-east-1'
 const BASE_PATH = process.env.S3_BASE_PATH || `https://${S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/__outputs`
 
