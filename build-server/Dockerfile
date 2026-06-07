@@ -1,22 +1,18 @@
 FROM ubuntu:focal
 
-RUN apt-get update
-RUN apt-get install -y curl
-RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
-RUN apt-get upgrade -y
-RUN apt-get install -y nodejs
-
-RUN apt-get install git -y
+RUN apt-get update \
+    && apt-get install -y curl git bash \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/app
 
-COPY main.sh main.sh
-COPY script.js script.js
-COPY package*.json .
+COPY main.sh script.js package*.json ./
 
-RUN npm install
+# Fix Windows CRLF line endings (causes "no such file or directory" in Linux)
+RUN sed -i 's/\r$//' main.sh \
+    && npm install \
+    && chmod +x main.sh
 
-RUN chmod +x main.sh
-RUN chmod +x script.js
-
-ENTRYPOINT [ "/home/app/main.sh" ]
+ENTRYPOINT ["/bin/bash", "/home/app/main.sh"]

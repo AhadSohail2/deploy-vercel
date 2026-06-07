@@ -99,15 +99,42 @@ function validateEcsConfig() {
     return { missing, invalid }
 }
 
+function validateBuildEnv() {
+    const missing = []
+    if (!process.env.AWS_ACCESS_KEY_ID) missing.push('AWS_ACCESS_KEY_ID')
+    if (!process.env.AWS_SECRET_ACCESS_KEY) missing.push('AWS_SECRET_ACCESS_KEY')
+    if (!process.env.S3_BUCKET) missing.push('S3_BUCKET')
+    return missing
+}
+
+function buildContainerEnvironment(gitURL, projectSlug) {
+    const redisUrlForBuild = process.env.REDIS_URL_FOR_ECS || REDIS_URL
+
+    const vars = {
+        GIT_REPOSITORY__URL: gitURL,
+        PROJECT_ID: projectSlug,
+        REDIS_URL: redisUrlForBuild,
+        AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+        AWS_REGION: process.env.AWS_REGION || 'us-east-1',
+        S3_BUCKET: process.env.S3_BUCKET,
+    }
+
+    return Object.entries(vars)
+        .filter(([, value]) => value != null && value !== '')
+        .map(([name, value]) => ({ name, value: String(value) }))
+}
+
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 app.use(express.json())
 
 app.get('/ecs-check', (req, res) => {
     const { missing, invalid } = validateEcsConfig()
+    const buildMissing = validateBuildEnv()
     res.json({
-        ok: missing.length === 0 && invalid.length === 0,
-        missing,
+        ok: missing.length === 0 && invalid.length === 0 && buildMissing.length === 0,
+        missing: [...missing, ...buildMissing],
         invalid,
         config: {
             cluster: config.CLUSTER,
@@ -116,6 +143,9 @@ app.get('/ecs-check', (req, res) => {
             subnets: config.SUBNETS,
             securityGroups: config.SECURITY_GROUPS,
             region: process.env.AWS_REGION || 'us-east-1',
+            s3Bucket: process.env.S3_BUCKET,
+            redisUrlForEcs: process.env.REDIS_URL_FOR_ECS || REDIS_URL,
+            hasAwsCredentials: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
         },
     })
 })
@@ -125,10 +155,11 @@ app.post('/project', async (req, res) => {
     const projectSlug = slug ? slug : generateSlug()
 
     const { missing, invalid } = validateEcsConfig()
-    if (missing.length > 0) {
+    const buildMissing = validateBuildEnv()
+    if (missing.length > 0 || buildMissing.length > 0) {
         return res.status(500).json({
             status: 'error',
-            message: `Missing ECS config: ${missing.join(', ')}`
+            message: `Missing config: ${[...missing, ...buildMissing].join(', ')}`
         })
     }
     if (invalid.length > 0) {
@@ -138,8 +169,6 @@ app.post('/project', async (req, res) => {
             hint: 'Fix ECS_SUBNETS and ECS_SECURITY_GROUPS in .env — copy exact IDs from AWS VPC console'
         })
     }
-
-    const redisUrlForBuild = process.env.REDIS_URL_FOR_ECS || REDIS_URL
 
     const command = new RunTaskCommand({
         cluster: config.CLUSTER,
@@ -157,11 +186,7 @@ app.post('/project', async (req, res) => {
             containerOverrides: [
                 {
                     name: config.CONTAINER,
-                    environment: [
-                        { name: 'GIT_REPOSITORY__URL', value: gitURL },
-                        { name: 'PROJECT_ID', value: projectSlug },
-                        { name: 'REDIS_URL', value: redisUrlForBuild }
-                    ]
+                    environment: buildContainerEnvironment(gitURL, projectSlug)
                 }
             ]
         }

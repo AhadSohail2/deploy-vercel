@@ -1,0 +1,2 @@
+*.sh text eol=lf
+build-server/main.sh text eol=lf
