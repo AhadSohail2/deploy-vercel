@@ -22,9 +22,9 @@ flowchart LR
     Nginx -->|*.your-domain.com| S3Proxy
     S3Proxy --> S3
     API --> Redis
-    ECSBuild[ECS build-server] --> Redis
-    ECSBuild --> S3
-    API --> ECSBuild
+    API -->|clone build upload| BuildJob[build-server on EC2]
+    BuildJob --> Redis
+    BuildJob --> S3
 ```
 
 ## 1. Launch EC2
@@ -35,7 +35,6 @@ flowchart LR
   - 22 (SSH)
   - 80 (HTTP)
   - 443 (HTTPS, optional)
-  - 6379 — only if ECS build tasks need Redis (restrict to VPC CIDR)
 
 ## 2. DNS
 
@@ -76,7 +75,7 @@ git clone <your-repo-url> vercel-clone
 cd vercel-clone
 
 cp deploy/.env.example .env
-nano .env   # fill in AWS keys, ECS ARNs, DOMAIN, etc.
+nano .env   # fill in AWS keys, S3 bucket, DOMAIN, etc.
 ```
 
 The setup script resolves paths from wherever you cloned the repo — no `/opt` folder required.
@@ -123,16 +122,32 @@ curl http://localhost:3000   # Frontend (direct)
 
 Open `http://your-domain.com` in a browser.
 
+## Build flow (on EC2 — no ECS)
+
+When you click Deploy:
+
+1. **Clone** repo to a temp folder on the server
+2. **Build** with `npm install && npm run build`
+3. **Upload** `dist/` (or `build/` / `out/`) to S3
+4. **Delete** all cloned/build files from disk
+
+Logs stream live via Redis → Socket.IO.
+
+Verify build config:
+
+```bash
+curl -s http://127.0.0.1:9000/build-check | python3 -m json.tool
+```
+
 ## Redis (local)
 
-Redis runs on the same EC2 box. The API server connects via `redis://127.0.0.1:6379`.
+Redis runs on the same EC2 box. Set in `.env`:
 
-If you still use **ECS Fargate** for `build-server`, Fargate tasks must reach this Redis:
+```bash
+REDIS_URL=redis://127.0.0.1:6379
+```
 
-1. Set `REDIS_URL_FOR_ECS=redis://<EC2_PRIVATE_IP>:6379` in `.env`
-2. In `/etc/redis/redis.conf`, change `bind 127.0.0.1` to `bind 0.0.0.0`
-3. Restart Redis: `sudo systemctl restart redis-server`
-4. Allow port 6379 from your VPC only in the EC2 security group
+Both the API server and local build jobs use this URL. No public Redis or ECS setup required.
 
 ## Restart services
 

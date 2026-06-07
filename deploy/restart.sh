@@ -60,6 +60,7 @@ set +a
 
 echo "==> Installing npm dependencies..."
 cd "${APP_DIR}/api-server" && npm install
+cd "${APP_DIR}/build-server" && npm install
 cd "${APP_DIR}/s3-reverse-proxy" && npm install
 cd "${APP_DIR}/frontend-nextjs" && npm install
 

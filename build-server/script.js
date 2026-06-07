@@ -63,7 +63,10 @@ async function init() {
         process.exit(1)
     }
 
-    const p = exec(`cd ${outDirPath} && npm install && npm run build`)
+    const p = exec(`cd ${outDirPath} && npm install && npm run build`, {
+        maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=2048' },
+    })
 
     p.stdout.on('data', (data) => publishLog(data.toString()))
     p.stderr.on('data', (data) => publishLog(`stderr: ${data.toString()}`))

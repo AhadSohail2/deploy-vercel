@@ -28,9 +28,9 @@ echo "==> Installing system dependencies..."
 apt-get update
 apt-get install -y curl git nginx redis-server
 
-echo "==> Installing Node.js 20..."
-if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d v) -lt 20 ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+echo "==> Installing Node.js 22..."
+if ! command -v node &>/dev/null || [[ $(node -v | cut -d. -f1 | tr -d v) -lt 22 ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y nodejs
 fi
 
@@ -59,6 +59,7 @@ set +a
 
 echo "==> Installing npm dependencies (as ${APP_USER})..."
 run_as_user "cd '${APP_DIR}/api-server' && npm install"
+run_as_user "cd '${APP_DIR}/build-server' && npm install"
 run_as_user "cd '${APP_DIR}/s3-reverse-proxy' && npm install"
 run_as_user "cd '${APP_DIR}/frontend-nextjs' && npm install"
 
