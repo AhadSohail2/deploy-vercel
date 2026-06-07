@@ -1,20 +1,25 @@
 "use client";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  BookOpen,
-  Cloud,
-  Github,
-  GraduationCap,
-  Rocket,
-  Server,
-  Terminal,
-} from "lucide-react";
-import { Fira_Code } from "next/font/google";
 import axios from "axios";
 import type { Socket } from "socket.io-client";
+import { Fira_Code } from "next/font/google";
+import {
+  CheckCircle2,
+  ExternalLink,
+  Github,
+  Loader2,
+  Rocket,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Background } from "@/components/background";
+import { HeroSection } from "@/components/hero-section";
+import { FeatureCards } from "@/components/feature-cards";
+import { PipelineFlow } from "@/components/pipeline-flow";
+import { BuildTerminal } from "@/components/build-terminal";
+import { TechStackSection } from "@/components/tech-stack-section";
 
 function resolveApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -53,34 +58,6 @@ function createSocket(): Socket {
 
 const firaCode = Fira_Code({ subsets: ["latin"] });
 
-const TECH_STACK = [
-  "Next.js",
-  "Node.js",
-  "Docker",
-  "AWS S3",
-  "Redis",
-  "Nginx",
-  "Socket.IO",
-];
-
-const PROJECT_FEATURES = [
-  {
-    icon: Github,
-    title: "GitHub Integration",
-    description: "Deploy any public repository by pasting its URL.",
-  },
-  {
-    icon: Terminal,
-    title: "Live Build Logs",
-    description: "Stream build output in real time via WebSockets.",
-  },
-  {
-    icon: Cloud,
-    title: "Static Hosting",
-    description: "Built assets are uploaded to S3 and served through a reverse proxy.",
-  },
-];
-
 export default function Home() {
   const [repoURL, setURL] = useState<string>("");
   const [logs, setLogs] = useState<string[]>([]);
@@ -99,12 +76,13 @@ export default function Home() {
     const regex = new RegExp(
       /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/]+)(?:\/)?$/
     );
-    return [regex.test(repoURL), "Enter valid Github Repository URL"];
+    return [regex.test(repoURL), "Enter a valid GitHub repository URL"];
   }, [repoURL]);
 
   const handleClickDeploy = useCallback(async () => {
     setLoading(true);
     setDeployError(null);
+    setLogs([]);
 
     try {
       const { data } = await axios.post(`${resolveApiUrl()}/project`, {
@@ -154,139 +132,97 @@ export default function Home() {
   }, [handleSocketIncommingMessage]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <header className="mb-12 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1.5 text-sm text-slate-300">
-            <GraduationCap className="h-4 w-4 text-sky-400" />
-            Semester Project · Spring 2026
-          </div>
+    <>
+      <Background />
+      <main className="relative min-h-screen">
+        <div className="mx-auto max-w-5xl px-6 py-12 lg:py-16">
+          <HeroSection />
+          <FeatureCards />
+          <PipelineFlow />
 
-          <h1 className="mb-3 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            DeployHub
-          </h1>
-          <p className="mx-auto max-w-2xl text-lg text-slate-400">
-            A Vercel-inspired cloud deployment platform built as a semester
-            project. Clone, build, and host static sites from GitHub with live
-            deployment logs.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-slate-400">
-            <span className="inline-flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4 text-sky-400" />
-              Cloud Computing & DevOps
-            </span>
-            <span className="hidden text-slate-600 sm:inline">·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <Server className="h-4 w-4 text-sky-400" />
-              Full-stack deployment pipeline
-            </span>
-          </div>
-        </header>
-
-        <section className="mb-10 grid gap-4 sm:grid-cols-3">
-          {PROJECT_FEATURES.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="rounded-xl border border-slate-800 bg-slate-900/50 p-5"
-            >
-              <Icon className="mb-3 h-5 w-5 text-sky-400" />
-              <h2 className="mb-1 font-semibold text-white">{title}</h2>
-              <p className="text-sm text-slate-400">{description}</p>
+          <section className="mb-8 animate-fade-in overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/20 backdrop-blur-md [animation-delay:300ms] sm:p-8">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/30 to-sky-500/30">
+                <Rocket className="h-5 w-5 text-sky-300" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  Deploy a Repository
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Enter a public GitHub URL to start building
+                </p>
+              </div>
             </div>
-          ))}
-        </section>
 
-        <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20">
-          <div className="mb-5 flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-sky-400" />
-            <h2 className="text-xl font-semibold text-white">
-              Deploy a Repository
-            </h2>
-          </div>
+            <div className="relative">
+              <Github className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+              <Input
+                disabled={loading}
+                value={repoURL}
+                onChange={(e) => setURL(e.target.value)}
+                type="url"
+                placeholder="https://github.com/username/repository"
+                className="h-12 border-white/10 bg-black/40 pl-11 text-white placeholder:text-slate-600 focus-visible:ring-violet-500/50"
+              />
+            </div>
 
-          <span className="flex items-center gap-2">
-            <Github className="h-10 w-10 shrink-0 text-slate-300" />
-            <Input
-              disabled={loading}
-              value={repoURL}
-              onChange={(e) => setURL(e.target.value)}
-              type="url"
-              placeholder="https://github.com/username/repository"
-              className="border-slate-700 bg-slate-950"
-            />
-          </span>
+            {!isValidURL[0] && repoURL.trim() !== "" && (
+              <p className="mt-2 text-sm text-red-400">{isValidURL[1]}</p>
+            )}
 
-          {!isValidURL[0] && repoURL.trim() !== "" && (
-            <p className="mt-2 text-sm text-red-400">{isValidURL[1]}</p>
-          )}
+            <Button
+              onClick={handleClickDeploy}
+              disabled={!isValidURL[0] || loading}
+              className="mt-5 h-12 w-full bg-gradient-to-r from-violet-600 to-sky-600 text-base font-medium text-white shadow-lg shadow-violet-500/20 transition-all hover:from-violet-500 hover:to-sky-500 hover:shadow-violet-500/30 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Building & Deploying...
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-2 h-5 w-5" />
+                  Deploy Project
+                </>
+              )}
+            </Button>
 
-          <Button
-            onClick={handleClickDeploy}
-            disabled={!isValidURL[0] || loading}
-            className="mt-4 w-full bg-sky-600 text-white hover:bg-sky-500"
-          >
-            {loading ? "Building & Deploying..." : "Deploy Project"}
-          </Button>
-
-          {deployError && (
-            <p className="mt-3 text-sm text-red-400">{deployError}</p>
-          )}
-
-          {deployPreviewURL && (
-            <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3">
-              <p className="text-sm text-slate-300">
-                Live preview{" "}
-                <a
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-sky-400 underline-offset-4 hover:underline"
-                  href={deployPreviewURL}
-                >
-                  {deployPreviewURL}
-                </a>
+            {deployError && (
+              <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+                {deployError}
               </p>
-            </div>
-          )}
-        </section>
+            )}
 
-        {logs.length > 0 && (
-          <section className="rounded-2xl border border-emerald-900/50 bg-slate-950 p-1">
-            <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
-              <Terminal className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-medium text-slate-300">
-                Build Logs
-              </span>
-            </div>
-            <div
-              className={`${firaCode.className} h-[280px] overflow-y-auto p-4 text-sm text-emerald-400`}
-            >
-              <pre className="flex flex-col gap-1">
-                {logs.map((log, i) => (
-                  <code
-                    ref={logs.length - 1 === i ? logContainerRef : undefined}
-                    key={i}
-                  >{`> ${log}`}</code>
-                ))}
-              </pre>
-            </div>
+            {deployPreviewURL && (
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3.5">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                <p className="min-w-0 text-sm text-slate-300">
+                  Live at{" "}
+                  <a
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-emerald-400 underline-offset-4 hover:underline"
+                    href={deployPreviewURL}
+                  >
+                    {deployPreviewURL}
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </p>
+              </div>
+            )}
           </section>
-        )}
 
-        <footer className="mt-12 border-t border-slate-800 pt-8 text-center">
-          <p className="mb-4 text-sm text-slate-500">Technologies used</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {TECH_STACK.map((tech) => (
-              <span
-                key={tech}
-                className="rounded-md border border-slate-800 bg-slate-900 px-3 py-1 text-xs text-slate-400"
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-        </footer>
-      </div>
-    </main>
+          <BuildTerminal
+            logs={logs}
+            logContainerRef={logContainerRef}
+            fontClassName={firaCode.className}
+          />
+
+          <TechStackSection />
+        </div>
+      </main>
+    </>
   );
 }

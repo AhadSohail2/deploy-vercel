@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+});
 
 export const metadata: Metadata = {
-  title: "DeployHub | Semester Project",
+  title: "DeployHub | Cloud Deployment Platform",
   description:
-    "A cloud deployment platform semester project — deploy GitHub repositories with live build logs and preview URLs.",
+    "Deploy GitHub repositories with live build logs, local EC2 builds, S3 hosting, and instant preview URLs.",
 };
 
 export default function RootLayout({
@@ -17,7 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html className="dark" lang="en">
-      <body className={inter.className}>{children}</body>
+      <body
+        className={`${inter.variable} ${spaceGrotesk.variable} font-sans`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
