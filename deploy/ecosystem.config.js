@@ -53,10 +53,12 @@ module.exports = {
             name: 'frontend',
             cwd: path.join(root, 'frontend-nextjs'),
             script: 'node_modules/next/dist/bin/next',
-            args: 'start -p 3000',
+            args: 'start -H 127.0.0.1 -p 3000',
             env: {
                 NODE_ENV: 'production',
             },
+            kill_timeout: 5000,
+            restart_delay: 3000,
             max_restarts: 10,
             min_uptime: '10s',
         },

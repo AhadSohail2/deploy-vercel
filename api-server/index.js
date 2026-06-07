@@ -62,8 +62,18 @@ const ecsClient = new ECSClient({
 const config = {
     CLUSTER: process.env.ECS_CLUSTER_ARN,
     TASK: process.env.ECS_TASK_ARN,
-    SUBNETS: (process.env.ECS_SUBNETS || '').split(',').filter(Boolean),
-    SECURITY_GROUPS: (process.env.ECS_SECURITY_GROUPS || '').split(',').filter(Boolean)
+    CONTAINER: process.env.ECS_CONTAINER_NAME || 'build-server',
+    SUBNETS: (process.env.ECS_SUBNETS || '').split(',').map(s => s.trim()).filter(Boolean),
+    SECURITY_GROUPS: (process.env.ECS_SECURITY_GROUPS || '').split(',').map(s => s.trim()).filter(Boolean)
+}
+
+function validateEcsConfig() {
+    const missing = []
+    if (!config.CLUSTER) missing.push('ECS_CLUSTER_ARN')
+    if (!config.TASK) missing.push('ECS_TASK_ARN')
+    if (config.SUBNETS.length === 0) missing.push('ECS_SUBNETS')
+    if (config.SECURITY_GROUPS.length === 0) missing.push('ECS_SECURITY_GROUPS')
+    return missing
 }
 
 app.use(cors(corsOptions))
@@ -73,6 +83,14 @@ app.use(express.json())
 app.post('/project', async (req, res) => {
     const { gitURL, slug } = req.body
     const projectSlug = slug ? slug : generateSlug()
+
+    const missing = validateEcsConfig()
+    if (missing.length > 0) {
+        return res.status(500).json({
+            status: 'error',
+            message: `Missing ECS config: ${missing.join(', ')}`
+        })
+    }
 
     const redisUrlForBuild = process.env.REDIS_URL_FOR_ECS || REDIS_URL
 
@@ -91,7 +109,7 @@ app.post('/project', async (req, res) => {
         overrides: {
             containerOverrides: [
                 {
-                    name: 'build-server',
+                    name: config.CONTAINER,
                     environment: [
                         { name: 'GIT_REPOSITORY__URL', value: gitURL },
                         { name: 'PROJECT_ID', value: projectSlug },
@@ -102,7 +120,16 @@ app.post('/project', async (req, res) => {
         }
     })
 
-    await ecsClient.send(command)
+    try {
+        await ecsClient.send(command)
+    } catch (err) {
+        console.error('ECS RunTask failed:', err)
+        return res.status(500).json({
+            status: 'error',
+            message: err.message || 'Failed to start ECS build task',
+            hint: 'Check ECS_CLUSTER_ARN, ECS_TASK_ARN, ECS_SUBNETS, ECS_SECURITY_GROUPS, and ECS_CONTAINER_NAME in .env'
+        })
+    }
 
     return res.json({
         status: 'queued',
